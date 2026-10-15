@@ -15,116 +15,186 @@ class Database:
 
     #Book
     def addBook(self,book):
-        self.cursor.execute(
-            "select category_id from categories" \
-            " where category=%s",(book.category,)
-        )
-        category=self.cursor.fetchone()
-        if category is None:
+        try:
             self.cursor.execute(
-                "insert into categories(category)" \
-                " values(%s) returning category_id",(book.category,)
+                "select category_id from categories" \
+                " where category=%s",(book.category,)
             )
-            category_id=self.cursor.fetchone()[0]
-        else:
-            category_id=category[0]
-        self.cursor.execute(
-            "insert into books(title,author,isbn,category_id,publisher,publication_year,total_copies,available_copies)" \
-            " values(%s,%s,%s,%s,%s,%s,%s,%s)",(book.title,book.author,book.isbn,category_id,book.publisher,book.publication_year,book.total_copies,book.available_copies)
-        )
-        
-        self.connection.commit()
-        return True
+            category=self.cursor.fetchone()
+            if category is None:
+                self.cursor.execute(
+                    "insert into categories(category)" \
+                    " values(%s) returning category_id",(book.category,)
+                )
+                category_id=self.cursor.fetchone()[0]
+            else:
+                category_id=category[0]
+            self.cursor.execute(
+                "insert into books(title,author,isbn,category_id,publisher,publication_year,total_copies,available_copies)" \
+                " values(%s,%s,%s,%s,%s,%s,%s,%s)",(book.title,book.author,book.isbn,category_id,book.publisher,book.publication_year,book.total_copies,book.available_copies)
+            )
+            
+            self.connection.commit()
+            return True
+        except psycopg.errors.NotNullViolation as e:
+            self.connection.rollback()
+            return f"{e.diag.column_name} is missing"
+        except psycopg.errors.CheckViolation as e:
+            self.connection.rollback()
+            return "Total copies must be greater than 0, and available copies cannot exceed total copies."
+
+        except psycopg.Error as e:
+            self.connection.rollback()
+            print(e)
+            return False
 
     def viewAllBook(self):
-        self.cursor.execute(
-            "select b.book_id,b.title,b.author,b.isbn,c.category,b.publisher,b.publication_year,b.total_copies,b.available_copies" \
-            " from books b" \
-            " join categories c on c.category_id=b.category_id"
-        )
-        rows=self.cursor.fetchall()
-        return rows
+        try:
+            self.cursor.execute(
+                "select b.book_id,b.title,b.author,b.isbn,c.category,b.publisher,b.publication_year,b.total_copies,b.available_copies" \
+                " from books b" \
+                " join categories c on c.category_id=b.category_id"
+            )
+            rows=self.cursor.fetchall()
+            return rows
+        except psycopg.Error as e:
+            print(e)
+            return None
 
     def searchBookId(self,book_id):
-        self.cursor.execute(
-            "select * from books" \
-            " where book_id=%s",(book_id,)
-        )
-        book=self.cursor.fetchone()
-        return book
+        try:
+            self.cursor.execute(
+                "select * from books" \
+                " where book_id=%s",(book_id,)
+            )
+            book=self.cursor.fetchone()
+            return book
+        except psycopg.Error as e:
+            print(e)
+            return None
 
     def searchBookTitle(self,title):
-        self.cursor.execute(
-            "select * from books" \
-            " where lower(title)=%s",(title.lower(),)
-        )
-        book=self.cursor.fetchone()
-        return book
+        try:
+            self.cursor.execute(
+                "select * from books" \
+                " where lower(title)=%s",(title.lower(),)
+            )
+            book=self.cursor.fetchone()
+            return book
+        except psycopg.Error as e:
+            print(e)
+            return None
 
     def updateBook(self,book):
-        self.cursor.execute(
-            "select category_id from categories" \
-            " where category=%s",(book.category,)
-        )
-        category=self.cursor.fetchone()
-        if category is None:
+        try:
             self.cursor.execute(
-                "insert into categories(category)" \
-                " values(%s) returning category_id",(book.category,)
+                "select category_id from categories" \
+                " where category=%s",(book.category,)
             )
-            category_id=self.cursor.fetchone()[0]
-        else:
-            category_id=category[0]
-        self.cursor.execute(
-            "update books" \
-            " set title=%s,author=%s,isbn=%s,category_id=%s,publisher=%s,publication_year=%s,total_copies=%s,available_copies=%s" \
-            " where book_id=%s",(book.title,book.author,book.isbn,category_id,book.publisher,book.publication_year,book.total_copies,book.available_copies,book.book_id)
-        )
-        self.connection.commit()
-        return True
+            category=self.cursor.fetchone()
+            if category is None:
+                self.cursor.execute(
+                    "insert into categories(category)" \
+                    " values(%s) returning category_id",(book.category,)
+                )
+                category_id=self.cursor.fetchone()[0]
+            else:
+                category_id=category[0]
+            self.cursor.execute(
+                "update books" \
+                " set title=%s,author=%s,isbn=%s,category_id=%s,publisher=%s,publication_year=%s,total_copies=%s,available_copies=%s" \
+                " where book_id=%s",(book.title,book.author,book.isbn,category_id,book.publisher,book.publication_year,book.total_copies,book.available_copies,book.book_id)
+            )
+            self.connection.commit()
+            return True
+        except psycopg.errors.NotNullViolation as e:
+            self.connection.rollback()
+            return f"{e.diag.column_name} is missing"
+        except psycopg.errors.CheckViolation as e:
+            self.connection.rollback()
+            return "Total copies must be greater than 0, and available copies cannot exceed total copies."
+
+        except psycopg.Error as e:
+            self.connection.rollback()
+            print(e)
+            return False
+
 
     def deleteBook(self,book_id):
-        self.cursor.execute(
-            "delete from books" \
-            " where book_id=%s",(book_id,)
-        )
-        self.connection.commit()
-        return True
+        try:
+            self.cursor.execute(
+                "delete from books" \
+                " where book_id=%s",(book_id,)
+            )
+            self.connection.commit()
+            return True
+        except psycopg.Error as e:
+            self.connection.rollback()
+            print(e)
+            return False
         
 
-
     def checkAvailableCopies(self):
-        self.cursor.execute(
-            "select book_id,title,author,available_copies from books" \
-            " where available_copies>0"
-        )
-        rows=self.cursor.fetchall()
-        return rows
+        try:
+            self.cursor.execute(
+                "select book_id,title,author,available_copies from books" \
+                " where available_copies>0"
+            )
+            rows=self.cursor.fetchall()
+            return rows
+        except psycopg.Error as e:
+            self.connection.rollback()
+            print(e)
+            return None
+
 
     #Member
     
     def registerMember(self,member):
-        self.cursor.execute(
-            "insert into members(name,email,phone,address)" \
-            " values(%s,%s,%s,%s)",(member.name,member.email,member.phone,member.address)
-        )
-        self.connection.commit()
-        return True
+        try:
+            self.cursor.execute(
+                "insert into members(name,email,phone,address)" \
+                " values(%s,%s,%s,%s)",(member.name,member.email,member.phone,member.address)
+            )
+            self.connection.commit()
+            return True
+        except psycopg.errors.NotNullViolation as e:
+            self.connection.rollback()
+            return f"{e.diag.column_name} is missing."
+        except psycopg.errors.CheckViolation as e:
+            self.connection.rollback()
+            return f"Email is invalid."
+        except psycopg.errors.UniqueViolation as e:
+            self.connection.rollback()
+            return f"Email already exist."
+        except psycopg.Error as e:
+            self.connection.rollback()
+            print(e)
+            return False
 
     def viewAllMember(self):
-        self.cursor.execute(
-            "select * from members"
-        )
-        rows=self.cursor.fetchall()
-        return rows
-
+        try:
+            self.cursor.execute(
+                "select * from members"
+            )
+            rows=self.cursor.fetchall()
+            return rows
+        except psycopg.Error as e:
+            self.connection.rollback()
+            print(e)
+            return None
     def searchMemByID(self,member_id):
-        self.cursor.execute(
-            "select * from members" \
-            " where member_id=%s",(member_id,)
-        )
-        member=self.cursor.fetchone()
-        return member
+        try:
+            self.cursor.execute(
+                "select * from members" \
+                " where member_id=%s",(member_id,)
+            )
+            member=self.cursor.fetchone()
+            return member
+        except psycopg.Error as e:
+            self.connection.rollback()
+            print(e)
+            return "Internal server error"
 
     def searchMemByName(self,name):
         self.cursor.execute(
